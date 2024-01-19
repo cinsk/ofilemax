@@ -64,23 +64,29 @@ func pfdcount(pid int) (int, error) {
 	return len(files), nil
 }
 
-func sys_filemax() uint64 {
-	var fmax uint64 = math.MaxUint64
+func sys_filemax() (uint64, error) {
+	var fmax uint64 = 0
 
 	f, err := os.Open("/proc/sys/fs/file-max")
 	if err != nil {
-		return fmax
+		return 0, err
 	}
-	rd := bufio.NewReader(f)
-	line, err := rd.ReadString('\n')
-	if err != nil {
-		return fmax
+	sc := bufio.NewScanner(f)
+	if sc.Scan() {
+		line := sc.Text()
+		fmax, err = strconv.ParseUint(line, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return fmax, nil
+	} else {
+		if sc.Err() != nil {
+			return 0, sc.Err()
+		} else {
+			return 0, fmt.Errorf("premature EOF")
+		}
+
 	}
-	fmax, err = strconv.ParseUint(line, 10, 64)
-	if err != nil {
-		return math.MaxInt64
-	}
-	return fmax
 }
 
 func pfdlimit(pid int) (*syscall.Rlimit, error) {
@@ -201,11 +207,18 @@ func main() {
 		msg.Fatal("cannot get the list of process")
 	}
 
-	fmax := sys_filemax()
+	fmax, fmaxerr := sys_filemax()
 
 	if !noheader_mode {
-		fmt.Printf("# System Max Open Files: %v\n", fmax)
+		if verbose_mode && fmaxerr != nil {
+			msg.Printf("cannot read /proc/sys/fs/file-max: %v", fmaxerr)
+		} else {
+			fmt.Printf("# System Max Open Files (/proc/sys/fs/file-max): %v\n", fmax)
+		}
+		fmt.Printf("# Check /etc/security/limits.conf per user's default limits\n")
+		fmt.Printf("# Check /etc/sysctl.conf for system limits\n")
 		fmt.Printf("#\n")
+
 		fmt.Printf("#  PID   RATE%% OPENFILE SOFT-MAX HARD-MAX\n")
 		fmt.Printf("# ---- ------- -------- -------- --------\n")
 	}
@@ -220,5 +233,4 @@ func main() {
 			msg.Printf("cannot read open file information of pid %d", pid)
 		}
 	}
-
 }
