@@ -177,7 +177,6 @@ func printEntry(pid int, rlim syscall.Rlimit, sysmax uint64) error {
 	ratio := float64(nfiles) / float64(lim)
 
 	if ratio >= float64(ratio_min_threshold) && ratio < float64(ratio_max_threshold) {
-		// fmt.Printf("%6d %6.2f%% %-20s %-20s %20d\n", pid, ratio, c, m, sysmax)
 		if rlim.Cur >= soft_min_threshold && rlim.Cur < soft_max_threshold {
 			if rlim.Max >= hard_min_threshold && rlim.Max < hard_max_threshold {
 				fmt.Printf("%6d %6.2f%% %8d %8d %8d\n", pid, ratio, nfiles, rlim.Cur, rlim.Max)
